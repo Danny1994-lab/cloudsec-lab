@@ -1,2 +1,1 @@
-# Cloud Security Lab
-Personal lab tracking my journey to Cloud Security Engineer.
+# I am having fun started learning this today.
