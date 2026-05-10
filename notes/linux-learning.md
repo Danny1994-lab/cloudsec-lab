@@ -1,9 +1,9 @@
-WEEK 2 — LINUX FUNDAMENTALS
+**WEEK 2 — LINUX FUNDAMENTALS**
 Lecturer's note on Week 2
 Almost every cloud workload — every container, every Kubernetes pod, every serverless function, every managed database — runs on Linux underneath. AWS Lambda runs Linux. Azure Functions run Linux (or .NET on Linux). Kubernetes nodes are Linux. Every Docker container is, at its core, an isolated Linux process tree. Even Windows-shop enterprises run their security tooling on Linux because the SIEM, the EDR backends, and the analyst workstations are all Linux-based.
 So for the next week, we live in a Linux terminal. Every concept you learn here is one you'll use every working day for the rest of your career.
 ________________________________________
-Module 2.1 — The Linux Philosophy and Filesystem Layout
+**Module 2.1 — The Linux Philosophy and Filesystem Layout**
 Concept
 Linux is built on a philosophy — articulated by Doug McIlroy in the early 1970s — that programs should do one thing well, work together using text streams, and treat the filesystem as a universal interface. This is why a single line like ps aux | grep nginx | awk '{print $2}' | xargs kill works: each tool does one job, and pipes glue them together.
 The filesystem is hierarchical and starts at / (the root). Everything — including hardware devices, running processes, kernel parameters, and network interfaces — appears as a file or directory somewhere under /. This is the everything is a file principle, and it's why Linux is such a powerful platform for automation.
