@@ -144,6 +144,93 @@ umask — default permissions for newly created files
 When you create a file, it doesn't get 777. The system applies a mask that subtracts permissions. Your shell's default is usually 022, meaning new files are created with 666 - 022 = 644 and new directories with 777 - 022 = 755.
 umask                     # show current mask
 umask 077                 # set restrictive: new files = 600, directories = 700
+
+**Umask Class**
+umask is the default permission mask applied to every new file and directory you create. It controls what permissions get removed from the system's defaults.
+Why it exists:
+When you create a file, Linux doesn't ask you for permissions — it picks them automatically. The defaults are:
+
+Files: 666 (rw-rw-rw-) — everyone can read and write
+Directories: 777 (rwxrwxrwx) — everyone can do everything
+
+That would be a security disaster, so the system applies your umask to subtract permissions before creating the file.
+The maths (the easy mental model):
+New file permissions      = 666 - umask
+New directory permissions = 777 - umask
+If your umask is 022:
+
+New file: 666 - 022 = 644 → rw-r--r-- (owner can write, others can only read)
+New dir:  777 - 022 = 755 → rwxr-xr-x (owner can write, others can read and traverse)
+
+If your umask is 077:
+
+New file: 666 - 077 = 600 → rw------- (only owner has any access)
+New dir:  777 - 077 = 700 → rwx------ (only owner can access at all)
+
+⚠️ Technically umask uses bitwise AND with the inverse, not subtraction — but for the common values you'll see, subtraction gives the right answer. Don't worry about the bitwise version unless you hit a weird edge case like umask 037.
+Show your current umask:
+bashumask
+# Output: 0022
+The leading 0 is just the octal prefix; the meaningful bit is 022.
+Show it in symbolic form:
+bashumask -S
+# Output: u=rwx,g=rx,o=rx
+See it in action — create a file and check its permissions:
+bashumask 022
+touch test1.txt
+ls -l test1.txt
+# -rw-r--r-- 1 dinesh dinesh 0 May  9 ... test1.txt
+
+umask 077
+touch test2.txt
+ls -l test2.txt
+# -rw------- 1 dinesh dinesh 0 May  9 ... test2.txt
+Same touch command, completely different permissions on the result. That's umask doing its job silently.
+Common umask values and when to use them:
+umaskNew file permsWhen to use022644 (rw-r--r--)Default on most Linux distros — everyone can read002664 (rw-rw-r--)Shared development environments where teammates need write access027640 (rw-r-----)Group can read, others see nothing — common in security-conscious environments077600 (rw-------)Only owner has access — for sensitive systems, SSH key directories007660 (rw-rw----)Owner + group full, others nothing
+Set it for your current shell only (temporary):
+bashumask 077        # restrictive
+touch sensitive.txt
+ls -l sensitive.txt
+# -rw------- 1 dinesh dinesh 0 ...
+When you close that terminal, the umask resets.
+Set it permanently for your user:
+Add to the end of ~/.bashrc:
+bashecho "umask 077" >> ~/.bashrc
+source ~/.bashrc
+Now every new shell session you open uses umask 077.
+Set it system-wide:
+Edit /etc/profile or a file under /etc/profile.d/ to apply to all users.
+
+Why this matters in cloud security:
+
+SSH key directories — ~/.ssh should be 700 and key files 600. SSH refuses to use keys with looser permissions. A bad umask creates broken keys.
+Sensitive log files — many breaches have started with log files written world-readable due to a permissive umask, exposing credentials accidentally logged in plain text.
+Container security — when a container creates files at runtime (uploads, generated configs), the umask determines who else in the container can read them. Hardened container base images set umask 0027 or 077 in their entrypoint scripts.
+Shared services — when nginx writes a session file, the file's permissions are nginx's umask. If that's 022 and the file contains tokens, you've made them readable by every user on the host.
+Compliance — many security frameworks (CIS Benchmarks for Linux, PCI-DSS) explicitly require umask 027 or stricter on production systems.
+
+
+Quick test for yourself right now:
+bash# Show current default
+umask
+
+# Create a file and see what happened
+touch /tmp/normal-file.txt
+ls -l /tmp/normal-file.txt
+
+# Tighten umask, create another, compare
+umask 077
+touch /tmp/private-file.txt
+ls -l /tmp/private-file.txt
+
+# Reset to default
+umask 022
+You'll see the permission column change in real time. That's umask in action.
+Add it to your linux-learning.md notes — this is one of those concepts that comes up in every security audit and every CIS benchmark.
+
+
+
 For a shared server hosting sensitive material, umask 077 is a good default in /etc/profile.
 Special bits — the SUID, SGID, and sticky bit
 These are the bits that get attackers excited.
