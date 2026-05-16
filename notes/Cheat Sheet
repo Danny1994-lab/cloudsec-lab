@@ -1,0 +1,128 @@
+/etc/          → service configs (first place to look when something breaks)
+/var/log/      → logs (incident investigation starts here)
+/home/         → user files, SSH keys, shell history
+/tmp/          → world-writable — security risk
+/proc//   → live process info exposed as files
+/usr/bin/      → most installed programs
+/dev/null      → the void  |  /dev/random → randomness
+644  →  rw-r--r--   normal file (owner writes, others read)
+755  →  rwxr-xr-x   script / directory (owner writes, others read+execute)
+600  →  rw-------   SSH private key (owner only)
+700  →  rwx------   ~/.ssh directory
+777  →  rwxrwxrwx   DANGER — everyone can do everything
+
+chmod 600 file.txt       # restrict to owner only
+chmod u+x script.sh      # add execute for owner
+chown dinesh:dinesh file # change owner and group
+chown -R dinesh /dir     # recursive — be careful
+SUID (4000)   → program runs as FILE OWNER, not invoking user
+              e.g. /usr/bin/passwd  (runs as root to write /etc/shadow)
+              ls shows 's' in owner execute position: -rwsr-xr-x
+
+SGID (2000)   → runs with file's GROUP; on dirs, new files inherit group
+
+Sticky (1000) → only FILE OWNER can delete (e.g. /tmp → drwxrwxrwt)
+
+# Hunt for SUID-root files (attacker's first step in priv-esc):
+find / -perm -4000 -user root -type f 2>/dev/null
+Files default:  666 - umask = permissions
+Dirs default:   777 - umask = permissions
+
+022  →  files 644, dirs 755   (distro default — everyone can read)
+027  →  files 640, dirs 750   (CIS/PCI-DSS compliant)
+077  →  files 600, dirs 700   (owner only — SSH keys, sensitive systems)
+
+umask             # show current
+umask 077         # set for this session
+echo "umask 077" >> ~/.bashrc   # make permanent
+
+⚠ SSH refuses keys if permissions are too loose
+⚠ CIS Benchmarks require 027 or stricter on production
+ps aux                    # all processes, BSD style
+ps -ef --forest           # parent-child tree (like the screenshot)
+ps aux | grep nginx        # find specific process
+
+top / htop                 # live monitor (htop: F5 for tree, M for mem sort)
+
+STAT column:  R=running  S=sleeping  D=uninterruptible(bad)  Z=zombie
+
+# Kill signals — always try SIGTERM first:
+kill 1234                 # SIGTERM (15) — polite, allows cleanup
+kill -9 1234              # SIGKILL — forced, no cleanup (last resort)
+killall nginx             # by name
+pkill -f "python script"  # match full command line
+ip a                      # all interfaces + IPs
+ip r                      # routing table
+
+# ★ Most important for security work:
+ss -tulnp                 # listening TCP+UDP ports with PID
+# t=TCP u=UDP l=listening n=numeric p=process
+
+# 0.0.0.0:22  → listening on ALL interfaces (reachable from outside)
+# 127.0.0.1:6379 → localhost only (not reachable from outside)
+
+dig microsoft.com          # DNS lookup
+dig +trace microsoft.com   # full recursive DNS trace (learn DNS this way)
+curl -v https://example.com   # verbose — debug TLS/API issues
+# Top 10 IPs by request count (brute-force detection):
+awk '{print $1}' /var/log/nginx/access.log \
+  | sort | uniq -c | sort -rn | head -10
+
+# Top 10 source IPs with failed SSH logins:
+grep "Failed password" /var/log/auth.log \
+  | awk '{print $11}' | sort | uniq -c | sort -rn | head -10
+grep "ERROR" file          # match pattern
+grep -i -v -r -n -E        # case-insensitive, invert, recursive, line#, regex
+grep -A3 -B1 "ERROR" file  # 3 lines after, 1 before each match
+
+sed 's/foo/bar/g' file     # replace all occurrences
+sed -i 's/foo/bar/g' file  # edit in place
+
+awk '{print $1}' file      # print column 1
+awk -F: '{print $1}' /etc/passwd   # use : as delimiter
+awk '$3 >= 1000 {print $1}' /etc/passwd   # users with UID >= 1000
+
+/var/log/auth.log    → SSH, sudo, logins
+/var/log/syslog      → general system messages
+/var/log/kern.log    → kernel messages
+
+tail -f /var/log/auth.log                        # live follow
+tail -f /var/log/auth.log | grep --line-buffered "Failed"  # filter live
+
+journalctl -u sshd                               # systemd unit logs
+journalctl -u sshd --since "1 hour ago"
+journalctl -p err -f                             # errors, live
+sort | uniq -c | sort -rn  # count + sort by frequency (the killer combo)
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+# set -e  → exit immediately if any command fails
+# set -u  → error on undefined variables (catches typos)
+# set -o pipefail → pipeline fails if ANY command in it fails
+# IFS     → protects against filenames with spaces
+/etc/passwd   world-readable  → username:x:UID:GID:name:home:shell
+/etc/shadow   root-only       → username:HASH:lastchange:...
+/etc/group                    → groupname:x:GID:member1,member2
+
+# Hash prefixes in /etc/shadow:
+$y$  → yescrypt (modern, secure)
+$6$  → SHA-512 (acceptable)
+$1$  → MD5 (INSECURE — flag this immediately)
+
+# UID conventions:
+0         → root (superuser)
+1–999     → system accounts (nginx, postgres, etc.)
+1000+     → human users
+
+id                  # who am I + my groups
+last                # login history
+
+find /etc -name "*.conf"                 # all .conf files
+find /home -type f -size +100M           # files > 100MB
+find /var/log -type f -mtime -1          # modified last 24h
+find / -perm -4000 -user root -type f 2>/dev/null   # SUID root files
+find /tmp -user root -type f             # root-owned files in /tmp
+
+# 2>/dev/null discards "Permission denied" noise
+
